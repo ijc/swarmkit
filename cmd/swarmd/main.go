@@ -11,6 +11,8 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	engineapi "github.com/docker/docker/client"
+	"github.com/docker/swarmkit/agent/exec"
+	"github.com/docker/swarmkit/agent/exec/containerd"
 	"github.com/docker/swarmkit/agent/exec/dockerapi"
 	"github.com/docker/swarmkit/cli"
 	"github.com/docker/swarmkit/cmd/swarmd/defaults"
@@ -126,6 +128,11 @@ var (
 				return err
 			}
 
+			containerdAddr, err := cmd.Flags().GetString("containerd-addr")
+			if err != nil {
+				return err
+			}
+
 			autolockManagers, err := cmd.Flags().GetBool("autolock")
 			if err != nil {
 				return err
@@ -147,12 +154,23 @@ var (
 			ctx, cancel := context.WithCancel(ctx)
 			defer cancel()
 
-			client, err := engineapi.NewClient(engineAddr, "", nil, nil)
-			if err != nil {
+			var executor exec.Executor
+
+			if err := os.MkdirAll(stateDir, 0700); err != nil {
 				return err
 			}
 
-			executor := dockerapi.NewExecutor(client)
+			if containerdAddr != "" {
+				logrus.Infof("Using containerd via %s", containerdAddr)
+				executor = containerd.NewExecutor(containerdAddr, stateDir)
+			} else {
+				client, err := engineapi.NewClient(engineAddr, "", nil, nil)
+				if err != nil {
+					return err
+				}
+
+				executor = dockerapi.NewExecutor(client)
+			}
 
 			if debugAddr != "" {
 				go func() {
@@ -232,6 +250,7 @@ func init() {
 	mainCmd.Flags().StringP("state-dir", "d", defaults.StateDir, "State directory")
 	mainCmd.Flags().StringP("join-token", "", "", "Specifies the secret token required to join the cluster")
 	mainCmd.Flags().String("engine-addr", "unix:///var/run/docker.sock", "Address of engine instance of agent.")
+	mainCmd.Flags().String("containerd-addr", "", "Address of containerd instance of agent.")
 	mainCmd.Flags().String("hostname", "", "Override reported agent hostname")
 	mainCmd.Flags().String("listen-remote-api", "0.0.0.0:4242", "Listen address for remote API")
 	mainCmd.Flags().String("listen-control-api", defaults.ControlAPISocket, "Listen socket for control API")
