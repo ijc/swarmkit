@@ -160,9 +160,11 @@ var (
 				return err
 			}
 
+			runNetworkAllocator := true
 			if containerdAddr != "" {
 				logrus.Infof("Using containerd via %s", containerdAddr)
 				executor = containerd.NewExecutor(containerdAddr, stateDir)
+				runNetworkAllocator = false
 			} else {
 				client, err := engineapi.NewClient(engineAddr, "", nil, nil)
 				if err != nil {
@@ -200,19 +202,20 @@ var (
 			}
 
 			n, err := node.New(&node.Config{
-				Hostname:         hostname,
-				ForceNewCluster:  forceNewCluster,
-				ListenControlAPI: unix,
-				ListenRemoteAPI:  addr,
-				JoinAddr:         managerAddr,
-				StateDir:         stateDir,
-				JoinToken:        joinToken,
-				ExternalCAs:      externalCAOpt.Value(),
-				Executor:         executor,
-				HeartbeatTick:    hb,
-				ElectionTick:     election,
-				AutoLockManagers: autolockManagers,
-				UnlockKey:        unlockKey,
+				Hostname:            hostname,
+				ForceNewCluster:     forceNewCluster,
+				ListenControlAPI:    unix,
+				ListenRemoteAPI:     addr,
+				JoinAddr:            managerAddr,
+				StateDir:            stateDir,
+				JoinToken:           joinToken,
+				ExternalCAs:         externalCAOpt.Value(),
+				Executor:            executor,
+				HeartbeatTick:       hb,
+				ElectionTick:        election,
+				AutoLockManagers:    autolockManagers,
+				UnlockKey:           unlockKey,
+				RunNetworkAllocator: runNetworkAllocator,
 			})
 			if err != nil {
 				return err

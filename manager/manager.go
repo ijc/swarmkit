@@ -111,6 +111,8 @@ type Config struct {
 
 	// PluginGetter provides access to docker's plugin inventory.
 	PluginGetter plugingetter.PluginGetter
+
+	RunNetworkAllocator bool
 }
 
 // Manager is the cluster manager for Swarm.
@@ -940,7 +942,7 @@ func (m *Manager) becomeLeader(ctx context.Context) {
 	// shutdown underlying manager processes when leadership is
 	// lost.
 
-	m.allocator, err = allocator.New(s, m.config.PluginGetter)
+	m.allocator, err = allocator.New(s, m.config.PluginGetter, m.config.RunNetworkAllocator)
 	if err != nil {
 		log.G(ctx).WithError(err).Error("failed to create allocator")
 		// TODO(stevvooe): It doesn't seem correct here to fail

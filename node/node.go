@@ -106,6 +106,9 @@ type Config struct {
 
 	// PluginGetter provides access to docker's plugin inventory.
 	PluginGetter plugingetter.PluginGetter
+
+	// RunNetworkAllocator indicates whether we want managers to run the CNM network allocator.
+	RunNetworkAllocator bool
 }
 
 // Node implements the primary node functionality for a member of a swarm
@@ -728,19 +731,20 @@ func (n *Node) runManager(ctx context.Context, securityConfig *ca.SecurityConfig
 
 	remoteAddr, _ := n.remotes.Select(n.NodeID())
 	m, err := manager.New(&manager.Config{
-		ForceNewCluster:  n.config.ForceNewCluster,
-		RemoteAPI:        remoteAPI,
-		ControlAPI:       n.config.ListenControlAPI,
-		SecurityConfig:   securityConfig,
-		ExternalCAs:      n.config.ExternalCAs,
-		JoinRaft:         remoteAddr.Addr,
-		StateDir:         n.config.StateDir,
-		HeartbeatTick:    n.config.HeartbeatTick,
-		ElectionTick:     n.config.ElectionTick,
-		AutoLockManagers: n.config.AutoLockManagers,
-		UnlockKey:        n.unlockKey,
-		Availability:     n.config.Availability,
-		PluginGetter:     n.config.PluginGetter,
+		ForceNewCluster:     n.config.ForceNewCluster,
+		RemoteAPI:           remoteAPI,
+		ControlAPI:          n.config.ListenControlAPI,
+		SecurityConfig:      securityConfig,
+		ExternalCAs:         n.config.ExternalCAs,
+		JoinRaft:            remoteAddr.Addr,
+		StateDir:            n.config.StateDir,
+		HeartbeatTick:       n.config.HeartbeatTick,
+		ElectionTick:        n.config.ElectionTick,
+		AutoLockManagers:    n.config.AutoLockManagers,
+		UnlockKey:           n.unlockKey,
+		Availability:        n.config.Availability,
+		PluginGetter:        n.config.PluginGetter,
+		RunNetworkAllocator: n.config.RunNetworkAllocator,
 	})
 	if err != nil {
 		return false, err

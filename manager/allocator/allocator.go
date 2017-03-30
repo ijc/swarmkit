@@ -2,13 +2,19 @@ package allocator
 
 import (
 	"sync"
+	"time"
 
 	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/go-events"
 	"github.com/docker/swarmkit/api"
 	"github.com/docker/swarmkit/manager/state"
 	"github.com/docker/swarmkit/manager/state/store"
+	"github.com/docker/swarmkit/protobuf/ptypes"
 	"golang.org/x/net/context"
+)
+
+const (
+	allocatedStatusMessage = "pending task scheduling"
 )
 
 // Allocator controls how the allocation stage in the manager is handled.
@@ -32,6 +38,9 @@ type Allocator struct {
 
 	// pluginGetter provides access to docker's plugin inventory.
 	pluginGetter plugingetter.PluginGetter
+
+	// runNetworkAllocator indicates if we should run the (CNM) network allocator
+	runNetworkAllocator bool
 }
 
 // taskBallot controls how the voting for task allocation is
@@ -72,15 +81,16 @@ type allocActor struct {
 
 // New returns a new instance of Allocator for use during allocation
 // stage of the manager.
-func New(store *store.MemoryStore, pg plugingetter.PluginGetter) (*Allocator, error) {
+func New(store *store.MemoryStore, pg plugingetter.PluginGetter, runNetworkAllocator bool) (*Allocator, error) {
 	a := &Allocator{
 		store: store,
 		taskBallot: &taskBallot{
 			votes: make(map[string][]string),
 		},
-		stopChan:     make(chan struct{}),
-		doneChan:     make(chan struct{}),
-		pluginGetter: pg,
+		stopChan:            make(chan struct{}),
+		doneChan:            make(chan struct{}),
+		pluginGetter:        pg,
+		runNetworkAllocator: runNetworkAllocator,
 	}
 
 	return a, nil
@@ -114,15 +124,25 @@ func (a *Allocator) Run(ctx context.Context) error {
 		state.EventCommit{},
 	)
 
-	for _, aa := range []allocActor{
-		{
+	aActors := []allocActor{}
+	if a.runNetworkAllocator {
+		aActors = append(aActors, allocActor{
 			ch:        watch,
 			cancel:    watchCancel,
 			taskVoter: networkVoter,
 			init:      a.doNetworkInit,
 			action:    a.doNetworkAlloc,
-		},
-	} {
+		})
+	}
+	aActors = append(aActors, allocActor{
+		ch:        watch,
+		cancel:    watchCancel,
+		taskVoter: backstopVoter,
+		init:      a.doBackstopInit,
+		action:    a.doBackstopAlloc,
+	})
+
+	for _, aa := range aActors {
 		if aa.taskVoter != "" {
 			a.registerToVote(aa.taskVoter)
 		}
@@ -226,4 +246,11 @@ nextVoter:
 	}
 
 	return true
+}
+
+// updateTaskStatus sets TaskStatus and updates timestamp.
+func updateTaskStatus(t *api.Task, newStatus api.TaskState, message string) {
+	t.Status.State = newStatus
+	t.Status.Message = message
+	t.Status.Timestamp = ptypes.MustTimestampProto(time.Now())
 }

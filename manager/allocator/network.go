@@ -10,15 +10,13 @@ import (
 	"github.com/docker/swarmkit/manager/allocator/networkallocator"
 	"github.com/docker/swarmkit/manager/state"
 	"github.com/docker/swarmkit/manager/state/store"
-	"github.com/docker/swarmkit/protobuf/ptypes"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 )
 
 const (
 	// Network allocator Voter ID for task allocation vote.
-	networkVoter           = "network"
-	allocatedStatusMessage = "pending task scheduling"
+	networkVoter = "network"
 )
 
 var (
@@ -1078,13 +1076,6 @@ func (a *Allocator) procTasksNetwork(ctx context.Context, onRetry bool) {
 	for _, t := range allocatedTasks[:committed] {
 		delete(toAllocate, t.ID)
 	}
-}
-
-// updateTaskStatus sets TaskStatus and updates timestamp.
-func updateTaskStatus(t *api.Task, newStatus api.TaskState, message string) {
-	t.Status.State = newStatus
-	t.Status.Message = message
-	t.Status.Timestamp = ptypes.MustTimestampProto(time.Now())
 }
 
 // IsIngressNetwork returns whether the passed network is an ingress network.
