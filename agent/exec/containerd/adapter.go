@@ -407,6 +407,7 @@ func (c *containerAdapter) spec(ctx context.Context, config *ocispec.ImageConfig
 				Permitted:   caps,
 				Ambient:     caps,
 			},
+			NoNewPrivileges: true,
 			Terminal:        false,
 		},
 		Linux: &specs.Linux{
