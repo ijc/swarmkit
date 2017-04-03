@@ -124,26 +124,12 @@ func (c *containerAdapter) applyLayer(ctx context.Context, rootfs string, layer 
 	return err
 }
 
-// github.com/docker/containerd cmd/ctr/utils.go
-func prepareStdio(stdin, stdout, stderr string, console bool) (*sync.WaitGroup, error) {
+// github.com/docker/containerd cmd/ctr/utils.go, dropped stdin handling
+func prepareStdio(stdout, stderr string, console bool) (*sync.WaitGroup, error) {
 	var wg sync.WaitGroup
 	ctx := context.Background()
 
-	f, err := fifo.OpenFifo(ctx, stdin, syscall.O_WRONLY|syscall.O_CREAT|syscall.O_NONBLOCK, 0700)
-	if err != nil {
-		return nil, err
-	}
-	defer func(c io.Closer) {
-		if err != nil {
-			c.Close()
-		}
-	}(f)
-	go func(w io.WriteCloser) {
-		io.Copy(w, os.Stdin)
-		w.Close()
-	}(f)
-
-	f, err = fifo.OpenFifo(ctx, stdout, syscall.O_RDONLY|syscall.O_CREAT|syscall.O_NONBLOCK, 0700)
+	f, err := fifo.OpenFifo(ctx, stdout, syscall.O_RDONLY|syscall.O_CREAT|syscall.O_NONBLOCK, 0700)
 	if err != nil {
 		return nil, err
 	}
@@ -421,6 +407,7 @@ func (c *containerAdapter) spec(ctx context.Context, config *ocispec.ImageConfig
 				Permitted:   caps,
 				Ambient:     caps,
 			},
+			Terminal:        false,
 		},
 		Linux: &specs.Linux{
 			Namespaces: []specs.LinuxNamespace{
@@ -487,7 +474,8 @@ func (c *containerAdapter) create(ctx context.Context) error {
 	}
 
 	rootfs := filepath.Join(c.dir, "rootfs")
-	stdin := filepath.Join(c.dir, "stdin")
+	// XXX TODO support ControllerLogs interface
+	stdin := "/dev/null"
 	stdout := filepath.Join(c.dir, "stdout")
 	stderr := filepath.Join(c.dir, "stderr")
 
@@ -522,8 +510,7 @@ func (c *containerAdapter) create(ctx context.Context) error {
 		return err
 	}
 
-	console := false
-	_, err = prepareStdio(stdin, stdout, stderr, console)
+	_, err = prepareStdio(stdout, stderr, spec.Process.Terminal)
 	if err != nil {
 		return err
 	}
@@ -545,7 +532,7 @@ func (c *containerAdapter) create(ctx context.Context) error {
 		Stdin:    stdin,
 		Stdout:   stdout,
 		Stderr:   stderr,
-		Terminal: console,
+		Terminal: spec.Process.Terminal,
 	})
 	if err != nil {
 		return err
