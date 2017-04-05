@@ -255,8 +255,14 @@ func (a *Allocator) doNetworkInit(ctx context.Context) (err error) {
 func (a *Allocator) doNetworkAlloc(ctx context.Context, ev events.Event) {
 	nc := a.netCtx
 
+	// Only Event(Create|Update|Delete)Task and Commit are done if !a.runNetworkAllocator
+
 	switch v := ev.(type) {
 	case api.EventCreateNetwork:
+		if !a.runNetworkAllocator {
+			break
+		}
+
 		n := v.Network.Copy()
 		if nc.nwkAllocator.IsAllocated(n) {
 			break
@@ -287,6 +293,10 @@ func (a *Allocator) doNetworkAlloc(ctx context.Context, ev events.Event) {
 			}
 		}
 	case api.EventDeleteNetwork:
+		if !a.runNetworkAllocator {
+			break
+		}
+
 		n := v.Network.Copy()
 
 		if IsIngressNetwork(n) && nc.ingressNetwork != nil && nc.ingressNetwork.ID == n.ID {
@@ -306,6 +316,10 @@ func (a *Allocator) doNetworkAlloc(ctx context.Context, ev events.Event) {
 
 		delete(nc.unallocatedNetworks, n.ID)
 	case api.EventCreateService:
+		if !a.runNetworkAllocator {
+			break
+		}
+
 		var s *api.Service
 		a.store.View(func(tx store.ReadTx) {
 			s = store.GetService(tx, v.Service.ID)
@@ -330,6 +344,10 @@ func (a *Allocator) doNetworkAlloc(ctx context.Context, ev events.Event) {
 			log.G(ctx).WithError(err).Errorf("Failed to commit allocation for service %s", s.ID)
 		}
 	case api.EventUpdateService:
+		if !a.runNetworkAllocator {
+			break
+		}
+
 		// We may have already allocated this service. If a create or
 		// update event is older than the current version in the store,
 		// we run the risk of allocating the service a second time.
@@ -364,6 +382,10 @@ func (a *Allocator) doNetworkAlloc(ctx context.Context, ev events.Event) {
 			delete(nc.unallocatedServices, s.ID)
 		}
 	case api.EventDeleteService:
+		if !a.runNetworkAllocator {
+			break
+		}
+
 		s := v.Service.Copy()
 
 		if err := nc.nwkAllocator.ServiceDeallocate(s); err != nil {
@@ -374,6 +396,10 @@ func (a *Allocator) doNetworkAlloc(ctx context.Context, ev events.Event) {
 		// it's still there.
 		delete(nc.unallocatedServices, s.ID)
 	case api.EventCreateNode, api.EventUpdateNode, api.EventDeleteNode:
+		if !a.runNetworkAllocator {
+			break
+		}
+
 		a.doNodeAlloc(ctx, ev)
 	case api.EventCreateTask, api.EventUpdateTask, api.EventDeleteTask:
 		a.doTaskAlloc(ctx, ev)

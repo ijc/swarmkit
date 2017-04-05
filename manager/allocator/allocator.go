@@ -7,6 +7,7 @@ import (
 	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/go-events"
 	"github.com/docker/swarmkit/api"
+	"github.com/docker/swarmkit/log"
 	"github.com/docker/swarmkit/manager/state"
 	"github.com/docker/swarmkit/manager/state/store"
 	"github.com/docker/swarmkit/protobuf/ptypes"
@@ -109,23 +110,24 @@ func (a *Allocator) Run(ctx context.Context) error {
 	}()
 
 	var actors []func() error
-	watch, watchCancel := state.Watch(a.store.WatchQueue(),
-		api.EventCreateNetwork{},
-		api.EventDeleteNetwork{},
-		api.EventCreateService{},
-		api.EventUpdateService{},
-		api.EventDeleteService{},
-		api.EventCreateTask{},
-		api.EventUpdateTask{},
-		api.EventDeleteTask{},
-		api.EventCreateNode{},
-		api.EventUpdateNode{},
-		api.EventDeleteNode{},
-		state.EventCommit{},
-	)
 
 	aActors := []allocActor{}
 	if a.runNetworkAllocator {
+		watch, watchCancel := state.Watch(a.store.WatchQueue(),
+			api.EventCreateNetwork{},
+			api.EventDeleteNetwork{},
+			api.EventCreateService{},
+			api.EventUpdateService{},
+			api.EventDeleteService{},
+			api.EventCreateTask{},
+			api.EventUpdateTask{},
+			api.EventDeleteTask{},
+			api.EventCreateNode{},
+			api.EventUpdateNode{},
+			api.EventDeleteNode{},
+			state.EventCommit{},
+		)
+
 		aActors = append(aActors, allocActor{
 			ch:        watch,
 			cancel:    watchCancel,
@@ -133,7 +135,23 @@ func (a *Allocator) Run(ctx context.Context) error {
 			init:      a.doNetworkInit,
 			action:    a.doNetworkAlloc,
 		})
+	} else {
+		watch, watchCancel := state.Watch(a.store.WatchQueue(),
+			api.EventCreateTask{},
+			api.EventUpdateTask{},
+		)
+		aActors = append(aActors, allocActor{
+			ch:        watch,
+			cancel:    watchCancel,
+			taskVoter: simpleNetworkVoter,
+			init:      a.doSimpleNetworkInit,
+			action:    a.doSimpleNetworkAlloc,
+		})
 	}
+	watch, watchCancel := state.Watch(a.store.WatchQueue(),
+		api.EventCreateTask{},
+		api.EventUpdateTask{},
+	)
 	aActors = append(aActors, allocActor{
 		ch:        watch,
 		cancel:    watchCancel,
@@ -215,6 +233,7 @@ func (a *Allocator) registerToVote(name string) {
 }
 
 func (a *Allocator) taskAllocateVote(voter string, id string) bool {
+	log.G(context.TODO()).Infof("%s is voting on %s", voter, id)
 	a.taskBallot.Lock()
 	defer a.taskBallot.Unlock()
 
@@ -230,6 +249,9 @@ func (a *Allocator) taskAllocateVote(voter string, id string) bool {
 
 	// We haven't gotten enough votes yet
 	if len(a.taskBallot.voters) > len(a.taskBallot.votes[id]) {
+		log.G(context.TODO()).Infof("only %d/%d votes on %s", len(a.taskBallot.votes[id]), len(a.taskBallot.voters), id)
+		log.G(context.TODO()).Infof("votes:  %q", a.taskBallot.votes[id])
+		log.G(context.TODO()).Infof("voters: %q", a.taskBallot.voters)
 		return false
 	}
 
@@ -240,6 +262,8 @@ nextVoter:
 				continue nextVoter
 			}
 		}
+
+		log.G(context.TODO()).Infof("Voter %q has not voted on %s", voter, id)
 
 		// Not every registered voter has registered a vote.
 		return false
