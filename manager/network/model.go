@@ -10,4 +10,5 @@ type Model interface {
 	Allocator() (networkallocator.NetworkAllocator, error)
 	ValidateDriver(driver *api.Driver, pluginType string) error
 	PredefinedNetworks() []networkallocator.PredefinedNetworkData
+	SupportIngressNetwork() bool
 }
