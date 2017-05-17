@@ -41,6 +41,13 @@ func printTaskStatus(w io.Writer, t *api.Task) {
 		fmt.Fprintf(w, "  ExitCode\t: %d\n", ctnr.ExitCode)
 	}
 
+	if len(ctnr.Networks) > 0 {
+		fmt.Fprintf(w, "  Networks\n")
+		for _, n := range ctnr.Networks {
+			fmt.Fprintf(w, "    %s\t: %s %s\n", n.Network, n.Interface, n.Address)
+		}
+	}
+
 	if t.Status.PortStatus != nil && len(t.Status.PortStatus.Ports) > 0 {
 		ports := []string{}
 		for _, port := range t.Status.PortStatus.Ports {

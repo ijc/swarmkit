@@ -449,12 +449,26 @@ enum TaskState {
 	// Remove this message when the states are deemed perfect.
 }
 
+// State of Networks attached to a container
+message ContainerNetworkStatus {
+	// Network is the Network ID
+	string network = 1;
+
+	// Interface is the device name as seen within the container
+	string interface = 2;
+
+	// Address is the IP address in the form ipv4:XXX or ipv6:YYY
+	string address = 3;
+}
+
 // Container specific status.
 message ContainerStatus {
 	string container_id = 1;
 
 	int32 pid = 2 [(gogoproto.customname) = "PID"];
 	int32 exit_code = 3;
+
+	repeated ContainerNetworkStatus networks = 4;
 }
 
 // PortStatus specifies the actual allocated runtime state of a list
