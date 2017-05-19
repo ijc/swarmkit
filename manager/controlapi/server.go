@@ -3,8 +3,8 @@ package controlapi
 import (
 	"errors"
 
-	"github.com/docker/docker/pkg/plugingetter"
 	"github.com/docker/swarmkit/ca"
+	"github.com/docker/swarmkit/manager/network"
 	"github.com/docker/swarmkit/manager/state/raft"
 	"github.com/docker/swarmkit/manager/state/store"
 )
@@ -20,17 +20,17 @@ type Server struct {
 	raft           *raft.Node
 	securityConfig *ca.SecurityConfig
 	scu            ca.APISecurityConfigUpdater
-	pg             plugingetter.PluginGetter
+	nm             network.Model
 }
 
 // NewServer creates a Cluster API server.
 func NewServer(store *store.MemoryStore, raft *raft.Node, securityConfig *ca.SecurityConfig,
-	scu ca.APISecurityConfigUpdater, pg plugingetter.PluginGetter) *Server {
+	scu ca.APISecurityConfigUpdater, nm network.Model) *Server {
 	return &Server{
 		store:          store,
 		raft:           raft,
 		securityConfig: securityConfig,
 		scu:            scu,
-		pg:             pg,
+		nm:             nm,
 	}
 }

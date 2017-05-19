@@ -16,7 +16,6 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/boltdb/bolt"
-	"github.com/docker/docker/pkg/plugingetter"
 	metrics "github.com/docker/go-metrics"
 	"github.com/docker/swarmkit/agent"
 	"github.com/docker/swarmkit/agent/exec"
@@ -27,6 +26,7 @@ import (
 	"github.com/docker/swarmkit/log"
 	"github.com/docker/swarmkit/manager"
 	"github.com/docker/swarmkit/manager/encryption"
+	"github.com/docker/swarmkit/manager/network"
 	"github.com/docker/swarmkit/remotes"
 	"github.com/docker/swarmkit/watch"
 	"github.com/docker/swarmkit/xnet"
@@ -122,8 +122,8 @@ type Config struct {
 	// Availability allows a user to control the current scheduling status of a node
 	Availability api.NodeSpec_Availability
 
-	// PluginGetter provides access to docker's plugin inventory.
-	PluginGetter plugingetter.PluginGetter
+	// NetworkModel provides the network model
+	NetworkModel network.Model
 }
 
 // Node implements the primary node functionality for a member of a swarm
@@ -180,6 +180,9 @@ func (n *Node) RemoteAPIAddr() (string, error) {
 
 // New returns new Node instance.
 func New(c *Config) (*Node, error) {
+	if c.NetworkModel == nil {
+		return nil, errors.New("no network model provided")
+	}
 	if err := os.MkdirAll(c.StateDir, 0700); err != nil {
 		return nil, err
 	}
@@ -842,7 +845,7 @@ func (n *Node) runManager(ctx context.Context, securityConfig *ca.SecurityConfig
 		AutoLockManagers: n.config.AutoLockManagers,
 		UnlockKey:        n.unlockKey,
 		Availability:     n.config.Availability,
-		PluginGetter:     n.config.PluginGetter,
+		NetworkModel:     n.config.NetworkModel,
 		RootCAPaths:      rootPaths,
 	})
 	if err != nil {
