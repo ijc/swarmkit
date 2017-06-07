@@ -97,7 +97,7 @@ build: ## build the go packages
 
 test: ## run tests, except integration tests
 	@echo "🐳 $@"
-	@go test -parallel 8 ${RACE} -tags "${DOCKER_BUILDTAGS}" $(filter-out ${INTEGRATION_PACKAGE},${PACKAGES})
+	@go test -timeout 60s -parallel 8 ${RACE} -tags "${DOCKER_BUILDTAGS}" $(filter-out ${INTEGRATION_PACKAGE},${PACKAGES})
 
 integration: ## run integration tests
 	@echo "🐳 $@"
