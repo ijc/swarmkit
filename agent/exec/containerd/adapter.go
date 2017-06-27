@@ -16,7 +16,6 @@ import (
 	"github.com/docker/docker/pkg/signal"
 	"github.com/docker/swarmkit/agent/exec"
 	"github.com/docker/swarmkit/api"
-	"github.com/docker/swarmkit/api/naming"
 	"github.com/docker/swarmkit/log"
 	gogotypes "github.com/gogo/protobuf/types"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -63,6 +62,26 @@ type containerAdapter struct {
 	networks   []*networkStatus
 }
 
+// This is "github.com/docker/swarmkit/api/naming".Task but with a
+// name compatible with containerd after
+// https://github.com/containerd/containerd/pull/1083 (by prefixing
+// the three elements with N(ame), S(lot) & I(d)
+func name(t *api.Task) string {
+	if t.Annotations.Name != "" {
+		// if set, use the container Annotations.Name field, set in the orchestrator.
+		return t.Annotations.Name
+	}
+
+	slot := fmt.Sprint(t.Slot)
+	if slot == "" || t.Slot == 0 {
+		// when no slot id is assigned, we assume that this is node-bound task.
+		slot = t.NodeID
+	}
+
+	// fallback to service.instance.id.
+	return fmt.Sprintf("N%s.S%s.I%s", t.ServiceAnnotations.Name, slot, t.ID)
+}
+
 func newContainerAdapter(client *containerd.Client, task *api.Task, secrets exec.SecretGetter) (*containerAdapter, error) {
 	spec := task.Spec.GetContainer()
 	if spec == nil {
@@ -73,7 +92,7 @@ func newContainerAdapter(client *containerd.Client, task *api.Task, secrets exec
 		client:  client,
 		spec:    spec,
 		secrets: secrets,
-		name:    naming.Task(task),
+		name:    name(task),
 	}
 
 	for i, na := range task.Networks {
