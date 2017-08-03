@@ -16,6 +16,7 @@ import (
 	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/linux/runcopts"
+	"github.com/containerd/containerd/mount"
 	"github.com/containerd/containerd/rootfs"
 	"github.com/containerd/containerd/typeurl"
 	digest "github.com/opencontainers/go-digest"
@@ -55,6 +56,7 @@ type CheckpointTaskOpts func(*CheckpointTaskInfo) error
 
 type TaskInfo struct {
 	Checkpoint *types.Descriptor
+	RootFS     []mount.Mount
 	Options    interface{}
 }
 
@@ -161,7 +163,7 @@ func (t *task) Status(ctx context.Context) (TaskStatus, error) {
 
 // Wait is a blocking call that will wait for the task to exit and return the exit status
 func (t *task) Wait(ctx context.Context) (uint32, error) {
-	eventstream, err := t.client.EventService().Stream(ctx, &eventsapi.StreamEventsRequest{})
+	eventstream, err := t.client.EventService().Subscribe(ctx, &eventsapi.SubscribeRequest{})
 	if err != nil {
 		return UnknownExitStatus, errdefs.FromGRPC(err)
 	}
@@ -188,6 +190,7 @@ func (t *task) Wait(ctx context.Context) (uint32, error) {
 // during cleanup
 func (t *task) Delete(ctx context.Context) (uint32, error) {
 	if t.io != nil {
+		t.io.Cancel()
 		t.io.Wait()
 		t.io.Close()
 	}
@@ -204,7 +207,7 @@ func (t *task) Exec(ctx context.Context, id string, spec *specs.Process, ioCreat
 	if id == "" {
 		return nil, errors.Wrapf(errdefs.ErrInvalidArgument, "exec id must not be empty")
 	}
-	i, err := ioCreate()
+	i, err := ioCreate(id)
 	if err != nil {
 		return nil, err
 	}

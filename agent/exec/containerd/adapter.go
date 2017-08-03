@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/errdefs"
 	"github.com/containernetworking/cni/libcni"
@@ -22,6 +21,7 @@ import (
 	gogotypes "github.com/gogo/protobuf/types"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 
@@ -281,7 +281,7 @@ func (c *containerAdapter) prepare(ctx context.Context) error {
 
 	c.container, err = c.client.NewContainer(ctx, c.name,
 		containerd.WithSpec(spec),
-		containerd.WithNewRootFS(c.name, c.image))
+		containerd.WithNewSnapshot(c.name, c.image))
 	if err != nil {
 		return errors.Wrap(err, "creating container")
 	}
