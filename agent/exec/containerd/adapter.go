@@ -360,7 +360,7 @@ func (c *containerAdapter) wait(ctx context.Context) error {
 type status struct {
 	ID         string
 	Pid        uint32
-	Status     containerd.TaskStatus
+	Status     containerd.Status
 	ExitStatus error
 }
 
